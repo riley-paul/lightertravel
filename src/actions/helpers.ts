@@ -1,7 +1,14 @@
 import type { ActionAPIContext } from "astro/actions/runtime/utils.js";
 import { ActionError } from "astro:actions";
-import { Category, CategoryItem, Item, List, User } from "@/db/schema";
-import { eq, sql, inArray } from "drizzle-orm";
+import {
+  Category,
+  CategoryItem,
+  Item,
+  List,
+  ListUser,
+  User,
+} from "@/db/schema";
+import { eq, sql, inArray, and } from "drizzle-orm";
 import type {
   ExpandedList,
   ExpandedCategory,
@@ -25,11 +32,13 @@ export const getExpandedList = async (
   listId: string,
 ): Promise<ExpandedList> => {
   const db = createDb(context.locals.runtime.env);
-  const list = await db
-    .select()
-    .from(List)
-    .where(eq(List.id, listId))
-    .then((rows) => rows[0]);
+  const [list] = await db.select().from(List).where(eq(List.id, listId));
+
+  if (!list)
+    throw new ActionError({
+      code: "NOT_FOUND",
+      message: "Could not find list",
+    });
 
   const categories = await db
     .select()
@@ -146,4 +155,34 @@ export const getUser = async (context: ActionAPIContext, userId: string) => {
 
   if (!user) return null;
   return user;
+};
+
+export const userHasListAccess = async (
+  context: ActionAPIContext,
+  {
+    userId,
+    listId,
+  }: {
+    userId: string;
+    listId: string;
+  },
+) => {
+  const db = createDb(context.locals.runtime.env);
+  const [list] = await db
+    .select()
+    .from(ListUser)
+    .where(
+      and(
+        eq(ListUser.userId, userId),
+        eq(ListUser.listId, listId),
+        eq(ListUser.isPending, false),
+      ),
+    );
+
+  if (!list) {
+    throw new ActionError({
+      code: "UNAUTHORIZED",
+      message: "List not found",
+    });
+  }
 };

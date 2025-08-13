@@ -61,7 +61,6 @@ export const Item = sqliteTable("item", {
 
 export const List = sqliteTable("list", {
   id,
-  userId,
   name: text().notNull().default(""),
   description: text().notNull().default(""),
 
