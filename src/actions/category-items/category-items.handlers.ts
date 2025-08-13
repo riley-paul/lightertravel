@@ -9,11 +9,11 @@ import { CategoryItem, Item, Category } from "@/db/schema";
 import { eq, max } from "drizzle-orm";
 import { v4 as uuid } from "uuid";
 import type { CategoryItemSelect, ExpandedCategoryItem } from "@/lib/types";
-import type categoryItemInputs from "./category-items.inputs";
+import * as categoryItemInputs from "./category-items.inputs";
 import { createDb } from "@/db";
 import { reorder } from "@atlaskit/pragmatic-drag-and-drop/reorder";
 
-const create: ActionHandler<
+export const create: ActionHandler<
   typeof categoryItemInputs.create,
   ExpandedCategoryItem
 > = async ({ data }, c) => {
@@ -93,7 +93,7 @@ const create: ActionHandler<
   return getExpandedCategoryItem(c, created.id);
 };
 
-const createAndAddToCategory: ActionHandler<
+export const createAndAddToCategory: ActionHandler<
   typeof categoryItemInputs.createAndAddToCategory,
   CategoryItemSelect
 > = async ({ categoryId, itemData, categoryItemData }, c) => {
@@ -126,7 +126,7 @@ const createAndAddToCategory: ActionHandler<
   return created;
 };
 
-const update: ActionHandler<
+export const update: ActionHandler<
   typeof categoryItemInputs.update,
   CategoryItemSelect
 > = async ({ categoryItemId, data }, c) => {
@@ -170,10 +170,10 @@ const update: ActionHandler<
   return updated;
 };
 
-const remove: ActionHandler<typeof categoryItemInputs.remove, null> = async (
-  { categoryItemId },
-  c,
-) => {
+export const remove: ActionHandler<
+  typeof categoryItemInputs.remove,
+  null
+> = async ({ categoryItemId }, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
   const deleted = await db
@@ -194,12 +194,3 @@ const remove: ActionHandler<typeof categoryItemInputs.remove, null> = async (
 
   return null;
 };
-
-const categoryItemHandlers = {
-  create,
-  createAndAddToCategory,
-  reorder,
-  update,
-  remove,
-};
-export default categoryItemHandlers;

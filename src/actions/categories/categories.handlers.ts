@@ -6,11 +6,11 @@ import { getExpandedCategory, isAuthorized } from "@/actions/helpers";
 import { reorder } from "@atlaskit/pragmatic-drag-and-drop/reorder";
 
 import { v4 as uuid } from "uuid";
-import type categoryInputs from "./categories.inputs";
+import * as categoryInputs from "./categories.inputs";
 import type { ExpandedCategory, OtherCategory } from "@/lib/types";
 import { createDb } from "@/db";
 
-const getFromOtherLists: ActionHandler<
+export const getFromOtherLists: ActionHandler<
   typeof categoryInputs.getFromOtherLists,
   OtherCategory[]
 > = async ({ listId }, c) => {
@@ -30,7 +30,7 @@ const getFromOtherLists: ActionHandler<
   return categories;
 };
 
-const copyToList: ActionHandler<
+export const copyToList: ActionHandler<
   typeof categoryInputs.copyToList,
   ExpandedCategory
 > = async ({ categoryId, listId }, c) => {
@@ -109,7 +109,7 @@ const copyToList: ActionHandler<
   return getExpandedCategory(c, newCategory.id);
 };
 
-const create: ActionHandler<
+export const create: ActionHandler<
   typeof categoryInputs.create,
   ExpandedCategory
 > = async ({ listId, data }, c) => {
@@ -133,7 +133,7 @@ const create: ActionHandler<
   return getExpandedCategory(c, categoryId);
 };
 
-const remove: ActionHandler<typeof categoryInputs.remove, null> = async (
+export const remove: ActionHandler<typeof categoryInputs.remove, null> = async (
   { categoryId },
   c,
 ) => {
@@ -146,7 +146,7 @@ const remove: ActionHandler<typeof categoryInputs.remove, null> = async (
   return null;
 };
 
-const update: ActionHandler<
+export const update: ActionHandler<
   typeof categoryInputs.update,
   ExpandedCategory
 > = async ({ categoryId, data }, c) => {
@@ -210,7 +210,7 @@ const update: ActionHandler<
   return getExpandedCategory(c, categoryId);
 };
 
-const togglePacked: ActionHandler<
+export const togglePacked: ActionHandler<
   typeof categoryInputs.togglePacked,
   ExpandedCategory
 > = async ({ categoryId }, c) => {
@@ -230,13 +230,3 @@ const togglePacked: ActionHandler<
 
   return getExpandedCategory(c, categoryId);
 };
-
-const categoryHandlers = {
-  getFromOtherLists,
-  copyToList,
-  create,
-  remove,
-  update,
-  togglePacked,
-};
-export default categoryHandlers;
