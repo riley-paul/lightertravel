@@ -3,7 +3,7 @@ import { z } from "zod";
 
 const categoryItemInputs = {
   create: z.object({
-    data: zCategoryItemInsert.omit({ userId: true }),
+    data: zCategoryItemInsert,
   }),
   createAndAddToCategory: z.object({
     categoryId: z.string(),
@@ -12,7 +12,7 @@ const categoryItemInputs = {
   }),
   update: z.object({
     categoryItemId: z.string(),
-    data: zCategoryItemInsert.omit({ userId: true }).partial(),
+    data: zCategoryItemInsert.partial(),
   }),
   remove: z.object({ categoryItemId: z.string() }),
 };

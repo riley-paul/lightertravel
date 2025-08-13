@@ -74,7 +74,6 @@ export const List = sqliteTable("list", {
 
 export const Category = sqliteTable("category", {
   id,
-  userId,
   listId: text()
     .notNull()
     .references(() => List.id, { onDelete: "cascade" }),
@@ -85,7 +84,6 @@ export const Category = sqliteTable("category", {
 
 export const CategoryItem = sqliteTable("categoryItem", {
   id,
-  userId,
   categoryId: text()
     .notNull()
     .references(() => Category.id, { onDelete: "cascade" }),

@@ -58,7 +58,6 @@ export const seedTestData = async () => {
         id: categoryId,
         name: "Test Category",
         listId: LIST_ID,
-        userId: USER_ID,
         sortOrder: index + 1,
       }),
     ),
@@ -69,7 +68,6 @@ export const seedTestData = async () => {
       (itemId): CategoryItemInsert => ({
         itemId: itemId,
         categoryId: getRandomArrayItem(CATEGORY_IDS),
-        userId: USER_ID,
       }),
     ),
   );

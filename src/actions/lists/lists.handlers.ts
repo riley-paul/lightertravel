@@ -126,7 +126,7 @@ const remove: ActionHandler<typeof listInputs.remove, null> = async (
   const listCategories = await db
     .select()
     .from(Category)
-    .where(and(eq(Category.listId, listId), eq(Category.userId, userId)));
+    .where(eq(Category.listId, listId));
 
   if (listCategories.length) {
     await db.delete(CategoryItem).where(
@@ -150,12 +150,11 @@ const unpack: ActionHandler<typeof listInputs.unpack, ExpandedList> = async (
   c,
 ) => {
   const db = createDb(c.locals.runtime.env);
-  const userId = isAuthorized(c).id;
   const categoryItems = await db
     .select({ id: CategoryItem.id })
     .from(CategoryItem)
     .leftJoin(Category, eq(Category.id, CategoryItem.categoryId))
-    .where(and(eq(Category.listId, listId), eq(Category.userId, userId)));
+    .where(eq(Category.listId, listId));
   const ids = categoryItems.filter((i) => i !== null).map((ci) => ci.id!);
   await db
     .update(CategoryItem)

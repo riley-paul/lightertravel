@@ -14,9 +14,7 @@ const categoryInputs = {
   remove: z.object({ categoryId: z.string() }),
   update: z.object({
     categoryId: z.string(),
-    data: zCategoryInsert
-      .omit({ userId: true, listId: true, id: true })
-      .partial(),
+    data: zCategoryInsert.omit({ listId: true, id: true }).partial(),
   }),
   togglePacked: z.object({ categoryId: z.string() }),
 };

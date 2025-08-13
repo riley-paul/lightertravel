@@ -6,7 +6,7 @@ import {
   isAuthorized,
 } from "@/actions/helpers";
 import { CategoryItem, Item, Category } from "@/db/schema";
-import { and, eq, max } from "drizzle-orm";
+import { eq, max } from "drizzle-orm";
 import { v4 as uuid } from "uuid";
 import type { CategoryItemSelect, ExpandedCategoryItem } from "@/lib/types";
 import type categoryItemInputs from "./category-items.inputs";
@@ -23,9 +23,9 @@ const create: ActionHandler<
   console.log("create category item", data);
 
   const [category] = await db
-    .select({ listId: Category.listId, userId: Category.userId })
+    .select({ listId: Category.listId })
     .from(Category)
-    .where(and(eq(Category.id, data.categoryId), eq(Category.userId, userId)));
+    .where(eq(Category.id, data.categoryId));
 
   if (!category.listId) {
     throw new ActionError({
@@ -34,12 +34,12 @@ const create: ActionHandler<
     });
   }
 
-  if (category.userId !== userId) {
-    throw new ActionError({
-      code: "FORBIDDEN",
-      message: "You do not have permission to access this category",
-    });
-  }
+  // if (category.userId !== userId) {
+  //   throw new ActionError({
+  //     code: "FORBIDDEN",
+  //     message: "You do not have permission to access this category",
+  //   });
+  // }
 
   const listItemIds = await getListItemIds(c, category.listId);
 
@@ -61,7 +61,6 @@ const create: ActionHandler<
       id: uuid(),
       ...data,
       sortOrder: maxSortOrder ?? 0,
-      userId,
     })
     .returning();
 
@@ -69,12 +68,7 @@ const create: ActionHandler<
     const categoryItems = await db
       .select()
       .from(CategoryItem)
-      .where(
-        and(
-          eq(CategoryItem.categoryId, data.categoryId),
-          eq(CategoryItem.userId, userId),
-        ),
-      )
+      .where(eq(CategoryItem.categoryId, data.categoryId))
       .orderBy(CategoryItem.sortOrder);
 
     const categoryItemIds = categoryItems.map((i) => i.id);
@@ -126,7 +120,6 @@ const createAndAddToCategory: ActionHandler<
       categoryId,
       itemId: newItem.id,
       ...categoryItemData,
-      userId,
     })
     .returning();
 
@@ -152,12 +145,7 @@ const update: ActionHandler<
     const categoryItems = await db
       .select()
       .from(CategoryItem)
-      .where(
-        and(
-          eq(CategoryItem.categoryId, categoryId || updated.categoryId),
-          eq(CategoryItem.userId, userId),
-        ),
-      )
+      .where(eq(CategoryItem.categoryId, categoryId || updated.categoryId))
       .orderBy(CategoryItem.sortOrder);
 
     const categoryItemIds = categoryItems.map((i) => i.id);

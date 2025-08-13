@@ -15,7 +15,7 @@ const getFromOtherLists: ActionHandler<
   OtherCategory[]
 > = async ({ listId }, c) => {
   const db = createDb(c.locals.runtime.env);
-  const userId = isAuthorized(c).id;
+  // const userId = isAuthorized(c).id;
   const categories = await db
     .select({
       id: Category.id,
@@ -25,7 +25,7 @@ const getFromOtherLists: ActionHandler<
     })
     .from(Category)
     .innerJoin(List, eq(Category.listId, List.id))
-    .where(and(eq(Category.userId, userId), ne(Category.listId, listId)))
+    .where(ne(Category.listId, listId))
     .orderBy(desc(List.sortOrder), desc(Category.sortOrder));
   return categories;
 };
@@ -92,7 +92,6 @@ const copyToList: ActionHandler<
       id: uuid(),
       sortOrder: maxSortOrder ? maxSortOrder + 1 : undefined,
       listId,
-      userId,
     })
     .returning()
     .then((rows) => rows[0]);
@@ -104,7 +103,6 @@ const copyToList: ActionHandler<
         id: uuid(),
         packed: false,
         categoryId: newCategory.id,
-        userId,
       }),
     ),
   );
@@ -116,7 +114,7 @@ const create: ActionHandler<
   ExpandedCategory
 > = async ({ listId, data }, c) => {
   const db = createDb(c.locals.runtime.env);
-  const userId = isAuthorized(c).id;
+  // const userId = isAuthorized(c).id;
   const { max: maxSortOrder } = await db
     .select({ max: max(Category.sortOrder) })
     .from(Category)
@@ -129,7 +127,6 @@ const create: ActionHandler<
       sortOrder: maxSortOrder ? maxSortOrder + 1 : undefined,
       ...data,
       listId,
-      userId,
     })
     .returning();
 
@@ -168,19 +165,19 @@ const update: ActionHandler<
     });
   }
 
-  if (category.userId !== userId) {
-    throw new ActionError({
-      message: "Unauthorized",
-      code: "UNAUTHORIZED",
-    });
-  }
+  // if (category.userId !== userId) {
+  //   throw new ActionError({
+  //     message: "Unauthorized",
+  //     code: "UNAUTHORIZED",
+  //   });
+  // }
 
   const { listId } = category;
   const { sortOrder } = data;
 
   await db
     .update(Category)
-    .set({ ...data, userId })
+    .set({ ...data })
     .where(idAndUserIdFilter(Category, { id: categoryId, userId }));
 
   if (sortOrder !== undefined) {
@@ -218,28 +215,18 @@ const togglePacked: ActionHandler<
   ExpandedCategory
 > = async ({ categoryId }, c) => {
   const db = createDb(c.locals.runtime.env);
-  const userId = isAuthorized(c).id;
+  // const userId = isAuthorized(c).id;
   const categoryItems = await db
     .select()
     .from(CategoryItem)
-    .where(
-      and(
-        eq(CategoryItem.categoryId, categoryId),
-        eq(CategoryItem.userId, userId),
-      ),
-    );
+    .where(eq(CategoryItem.categoryId, categoryId));
 
   const fullyPacked = categoryItems.every((item) => item.packed);
 
   await db
     .update(CategoryItem)
     .set({ packed: !fullyPacked })
-    .where(
-      and(
-        eq(CategoryItem.categoryId, categoryId),
-        eq(CategoryItem.userId, userId),
-      ),
-    );
+    .where(eq(CategoryItem.categoryId, categoryId));
 
   return getExpandedCategory(c, categoryId);
 };
