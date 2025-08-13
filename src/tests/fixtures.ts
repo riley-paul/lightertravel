@@ -44,7 +44,6 @@ export const seedTestData = async () => {
     [LIST_ID, ...LIST_IDS].map(
       (listId, idx): ListInsert => ({
         id: listId,
-        userId: USER_ID,
         name: "Test List",
         sortOrder: idx + 1,
         description: "This is a test list",

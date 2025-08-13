@@ -41,7 +41,7 @@ export const getOne: ActionHandler<
   ExpandedList
 > = async ({ listId }, c) => {
   const userId = isAuthorized(c).id;
-  userHasListAccess(c, { userId, listId });
+  await userHasListAccess(c, { userId, listId });
   return getExpandedList(c, listId);
 };
 
@@ -82,7 +82,7 @@ export const update: ActionHandler<
   const userId = isAuthorized(c).id;
   const { sortOrder } = data;
 
-  userHasListAccess(c, { listId, userId });
+  await userHasListAccess(c, { listId, userId });
 
   const [updated] = await db
     .update(List)
@@ -121,7 +121,7 @@ export const remove: ActionHandler<typeof listInputs.remove, null> = async (
 ) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
-  userHasListAccess(c, { userId, listId });
+  await userHasListAccess(c, { userId, listId });
 
   await db.delete(List).where(eq(List.id, listId));
   return null;
@@ -133,7 +133,7 @@ export const unpack: ActionHandler<
 > = async ({ listId }, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
-  userHasListAccess(c, { userId, listId });
+  await userHasListAccess(c, { userId, listId });
   const categoryItems = await db
     .select({ id: CategoryItem.id })
     .from(CategoryItem)
@@ -153,7 +153,7 @@ export const duplicate: ActionHandler<
 > = async ({ listId }, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
-  userHasListAccess(c, { userId, listId });
+  await userHasListAccess(c, { userId, listId });
 
   const [list] = await db.select().from(List).where(eq(List.id, listId));
 
