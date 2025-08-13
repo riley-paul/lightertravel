@@ -3,6 +3,7 @@ import {
   CategoryItem,
   Item,
   List,
+  ListUser,
   User,
   weightUnits,
 } from "../schema";
@@ -41,7 +42,16 @@ export default async function seed() {
       })),
     )
     .returning();
-  console.log(`✅ Seeded ${lists.length} lists`);
+
+  await db.insert(ListUser).values(
+    lists.map(({ id: listId }) => ({
+      userId,
+      listId,
+      isAdmin: true,
+      isPending: false,
+    })),
+  );
+  console.log(`✅ Seeded ${lists.length} lists and list users`);
 
   const items = await db
     .insert(Item)
