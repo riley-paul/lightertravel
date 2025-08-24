@@ -34,7 +34,7 @@ describe("get list by id", () => {
 
   test("throws an error if the list does not exist", async () => {
     const error = new ActionError({
-      code: "NOT_FOUND",
+      code: "UNAUTHORIZED",
       message: "List not found",
     });
     await expect(() =>
