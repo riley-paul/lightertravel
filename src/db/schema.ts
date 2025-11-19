@@ -11,6 +11,10 @@ const userId = text()
   .notNull()
   .references(() => User.id, { onDelete: "cascade" });
 
+const listId = text()
+  .notNull()
+  .references(() => List.id, { onDelete: "cascade" });
+
 const timeStamps = {
   createdAt: text()
     .notNull()
@@ -72,12 +76,18 @@ export const List = sqliteTable("list", {
   ...timeStamps,
 });
 
+export const ListUser = sqliteTable("listUser", {
+  id,
+  userId,
+  listId,
+  isAdmin: integer({ mode: "boolean" }).notNull().default(false),
+  isPending: integer({ mode: "boolean" }).notNull().default(true),
+});
+
 export const Category = sqliteTable("category", {
   id,
   userId,
-  listId: text()
-    .notNull()
-    .references(() => List.id, { onDelete: "cascade" }),
+  listId,
   name: text().notNull().default(""),
   sortOrder: integer().notNull().default(0),
   ...timeStamps,
