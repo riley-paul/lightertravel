@@ -1,10 +1,13 @@
 ---
 import RootLayout from "@/layouts/root-layout.astro";
-import { getExpandedList, getUser } from "@/actions/helpers";
+import { getExpandedList } from "@/actions/helpers";
 
 import RadixProvider from "@/app/components/ui/radix-provider";
 import { Badge, Button, Link } from "@radix-ui/themes";
 import ViewerList from "@/app/modules/list-viewer/list-viewer";
+import { createDb } from "@/db";
+import { ListUser, User } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 const { listId = "" } = Astro.params;
 const list = await getExpandedList(Astro, listId);
@@ -17,8 +20,13 @@ if (!list.isPublic) {
   return new Response("List is not public", { status: 403 });
 }
 
-const listOwner = await getUser(Astro, list.userId);
-const isListOwner = Astro.locals.user?.id === list.userId;
+const db = createDb(Astro.locals.runtime.env)
+const [listOwner] = await db
+  .select({id: User.id, name: User.name})
+  .from(User)
+  .innerJoin(ListUser, eq(ListUser.userId, User.id))
+  .where(eq(ListUser.listId, listId));
+const isListOwner = Astro.locals.user?.id === listOwner.id;
 
 if (!listOwner) {
   return new Response("List owner not found", { status: 404 });

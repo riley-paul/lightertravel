@@ -1,6 +1,6 @@
 import { defineAction } from "astro:actions";
-import itemInputs from "./items.inputs";
-import itemHandlers from "./items.handlers";
+import * as itemInputs from "./items.inputs";
+import * as itemHandlers from "./items.handlers";
 
 export const getAll = defineAction({
   input: itemInputs.getAll,

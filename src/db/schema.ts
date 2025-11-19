@@ -61,7 +61,6 @@ export const Item = sqliteTable("item", {
 
 export const List = sqliteTable("list", {
   id,
-  userId,
   name: text().notNull().default(""),
   description: text().notNull().default(""),
 
@@ -86,7 +85,6 @@ export const ListUser = sqliteTable("listUser", {
 
 export const Category = sqliteTable("category", {
   id,
-  userId,
   listId,
   name: text().notNull().default(""),
   sortOrder: integer().notNull().default(0),
@@ -95,7 +93,6 @@ export const Category = sqliteTable("category", {
 
 export const CategoryItem = sqliteTable("categoryItem", {
   id,
-  userId,
   categoryId: text()
     .notNull()
     .references(() => Category.id, { onDelete: "cascade" }),

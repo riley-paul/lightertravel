@@ -1,47 +1,33 @@
-import { idAndUserIdFilter } from "@/actions/filters";
 import { ActionError, type ActionHandler } from "astro:actions";
 import {
   getExpandedCategoryItem,
   getListItemIds,
   isAuthorized,
+  userHasListAccess,
 } from "@/actions/helpers";
 import { CategoryItem, Item, Category } from "@/db/schema";
-import { and, eq, max } from "drizzle-orm";
+import { eq, max } from "drizzle-orm";
 import { v4 as uuid } from "uuid";
 import type { CategoryItemSelect, ExpandedCategoryItem } from "@/lib/types";
-import type categoryItemInputs from "./category-items.inputs";
+import * as categoryItemInputs from "./category-items.inputs";
 import { createDb } from "@/db";
 import { reorder } from "@atlaskit/pragmatic-drag-and-drop/reorder";
 
-const create: ActionHandler<
+export const create: ActionHandler<
   typeof categoryItemInputs.create,
   ExpandedCategoryItem
 > = async ({ data }, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
 
-  console.log("create category item", data);
-
-  const [category] = await db
-    .select({ listId: Category.listId, userId: Category.userId })
+  const [{ listId }] = await db
+    .select({ listId: Category.listId })
     .from(Category)
-    .where(and(eq(Category.id, data.categoryId), eq(Category.userId, userId)));
+    .where(eq(Category.id, data.categoryId));
 
-  if (!category.listId) {
-    throw new ActionError({
-      code: "NOT_FOUND",
-      message: "Category not found",
-    });
-  }
+  await userHasListAccess(c, { userId, listId });
 
-  if (category.userId !== userId) {
-    throw new ActionError({
-      code: "FORBIDDEN",
-      message: "You do not have permission to access this category",
-    });
-  }
-
-  const listItemIds = await getListItemIds(c, category.listId);
+  const listItemIds = await getListItemIds(c, listId);
 
   if (listItemIds.has(data.itemId)) {
     throw new ActionError({
@@ -61,7 +47,6 @@ const create: ActionHandler<
       id: uuid(),
       ...data,
       sortOrder: maxSortOrder ?? 0,
-      userId,
     })
     .returning();
 
@@ -69,12 +54,7 @@ const create: ActionHandler<
     const categoryItems = await db
       .select()
       .from(CategoryItem)
-      .where(
-        and(
-          eq(CategoryItem.categoryId, data.categoryId),
-          eq(CategoryItem.userId, userId),
-        ),
-      )
+      .where(eq(CategoryItem.categoryId, data.categoryId))
       .orderBy(CategoryItem.sortOrder);
 
     const categoryItemIds = categoryItems.map((i) => i.id);
@@ -91,7 +71,7 @@ const create: ActionHandler<
         db
           .update(CategoryItem)
           .set({ sortOrder: index })
-          .where(idAndUserIdFilter(CategoryItem, { userId, id })),
+          .where(eq(CategoryItem.id, id)),
       ),
     );
   }
@@ -99,24 +79,29 @@ const create: ActionHandler<
   return getExpandedCategoryItem(c, created.id);
 };
 
-const createAndAddToCategory: ActionHandler<
+export const createAndAddToCategory: ActionHandler<
   typeof categoryItemInputs.createAndAddToCategory,
   CategoryItemSelect
 > = async ({ categoryId, itemData, categoryItemData }, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
 
-  const newItem = await db
+  const [{ listId }] = await db
+    .select({ listId: Category.listId })
+    .from(Category)
+    .where(eq(Category.id, categoryId));
+
+  await userHasListAccess(c, { userId, listId });
+
+  const [newItem] = await db
     .insert(Item)
     .values({ id: uuid(), ...itemData, userId })
-    .returning()
-    .then((rows) => rows[0]);
+    .returning();
 
-  const { max: maxSortOrder } = await db
+  const [{ max: maxSortOrder }] = await db
     .select({ max: max(CategoryItem.sortOrder) })
     .from(CategoryItem)
-    .where(eq(CategoryItem.categoryId, categoryId))
-    .then((rows) => rows[0]);
+    .where(eq(CategoryItem.categoryId, categoryId));
 
   const [created] = await db
     .insert(CategoryItem)
@@ -126,24 +111,31 @@ const createAndAddToCategory: ActionHandler<
       categoryId,
       itemId: newItem.id,
       ...categoryItemData,
-      userId,
     })
     .returning();
 
   return created;
 };
 
-const update: ActionHandler<
+export const update: ActionHandler<
   typeof categoryItemInputs.update,
   CategoryItemSelect
 > = async ({ categoryItemId, data }, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
 
+  const [{ listId }] = await db
+    .select({ listId: Category.listId })
+    .from(Category)
+    .innerJoin(CategoryItem, eq(CategoryItem.categoryId, Category.id))
+    .where(eq(CategoryItem.id, categoryItemId));
+
+  await userHasListAccess(c, { userId, listId });
+
   const [updated] = await db
     .update(CategoryItem)
     .set(data)
-    .where(idAndUserIdFilter(CategoryItem, { userId, id: categoryItemId }))
+    .where(eq(CategoryItem.id, categoryItemId))
     .returning();
 
   const { categoryId, sortOrder } = data;
@@ -152,12 +144,7 @@ const update: ActionHandler<
     const categoryItems = await db
       .select()
       .from(CategoryItem)
-      .where(
-        and(
-          eq(CategoryItem.categoryId, categoryId || updated.categoryId),
-          eq(CategoryItem.userId, userId),
-        ),
-      )
+      .where(eq(CategoryItem.categoryId, categoryId || updated.categoryId))
       .orderBy(CategoryItem.sortOrder);
 
     const categoryItemIds = categoryItems.map((i) => i.id);
@@ -174,7 +161,7 @@ const update: ActionHandler<
         db
           .update(CategoryItem)
           .set({ sortOrder: index })
-          .where(idAndUserIdFilter(CategoryItem, { userId, id })),
+          .where(eq(CategoryItem.id, id)),
       ),
     );
   }
@@ -182,36 +169,34 @@ const update: ActionHandler<
   return updated;
 };
 
-const remove: ActionHandler<typeof categoryItemInputs.remove, null> = async (
-  { categoryItemId },
-  c,
-) => {
+export const remove: ActionHandler<
+  typeof categoryItemInputs.remove,
+  null
+> = async ({ categoryItemId }, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
-  const deleted = await db
+
+  const [{ listId }] = await db
+    .select({ listId: Category.listId })
+    .from(Category)
+    .innerJoin(CategoryItem, eq(CategoryItem.categoryId, Category.id))
+    .where(eq(CategoryItem.id, categoryItemId));
+
+  await userHasListAccess(c, { userId, listId });
+
+  const [deleted] = await db
     .delete(CategoryItem)
-    .where(idAndUserIdFilter(CategoryItem, { userId, id: categoryItemId }))
-    .returning()
-    .then((rows) => rows[0]);
+    .where(eq(CategoryItem.id, categoryItemId))
+    .returning();
 
   // delete item if it has no name, description, and weight
-  const item = await db
+  const [item] = await db
     .select()
     .from(Item)
-    .where(eq(Item.id, deleted.itemId))
-    .then((rows) => rows[0]);
+    .where(eq(Item.id, deleted.itemId));
   if (item.name === "" && item.description === "" && item.weight === 0) {
     await db.delete(Item).where(eq(Item.id, deleted.itemId));
   }
 
   return null;
 };
-
-const categoryItemHandlers = {
-  create,
-  createAndAddToCategory,
-  reorder,
-  update,
-  remove,
-};
-export default categoryItemHandlers;

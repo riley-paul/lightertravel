@@ -1,6 +1,6 @@
 import { defineAction } from "astro:actions";
-import categoryItemInputs from "./category-items.inputs";
-import categoryItemHandlers from "./category-items.handlers";
+import * as categoryItemInputs from "./category-items.inputs";
+import * as categoryItemHandlers from "./category-items.handlers";
 
 export const create = defineAction({
   input: categoryItemInputs.create,

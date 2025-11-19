@@ -1,5 +1,5 @@
 import { test, describe, expect } from "vitest";
-import listHandlers from "./lists.handlers";
+import * as listHandlers from "./lists.handlers";
 import mockApiContext from "@/tests/mock-api-context";
 import { CATEGORY_IDS, LIST_ID, LIST_IDS, USER_ID } from "@/tests/fixtures";
 import { ActionError } from "astro:actions";
@@ -34,7 +34,7 @@ describe("get list by id", () => {
 
   test("throws an error if the list does not exist", async () => {
     const error = new ActionError({
-      code: "NOT_FOUND",
+      code: "UNAUTHORIZED",
       message: "List not found",
     });
     await expect(() =>

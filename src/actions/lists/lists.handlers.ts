@@ -1,99 +1,97 @@
 import { createDb } from "@/db";
-import { List, Category, CategoryItem } from "@/db/schema";
-import { and, eq, inArray, max } from "drizzle-orm";
-import { idAndUserIdFilter } from "@/actions/filters";
-import { ActionError, type ActionHandler } from "astro:actions";
-import { getExpandedList, isAuthorized } from "@/actions/helpers";
+import { List, Category, CategoryItem, ListUser } from "@/db/schema";
+import { eq, inArray, max } from "drizzle-orm";
+import { type ActionHandler } from "astro:actions";
+import {
+  getExpandedList,
+  isAuthorized,
+  userHasListAccess,
+} from "@/actions/helpers";
 import { reorder } from "@atlaskit/pragmatic-drag-and-drop/reorder";
 
-import { v4 as uuid } from "uuid";
-import type listInputs from "./lists.inputs";
+import type * as listInputs from "./lists.inputs";
 import type { ExpandedList, ListSelect } from "@/lib/types";
+import type { ActionAPIContext } from "astro/actions/runtime/virtual/shared.js";
 
-const getAll: ActionHandler<typeof listInputs.getAll, ListSelect[]> = async (
-  _,
-  c,
-) => {
+const getAllUserLists = async (
+  c: ActionAPIContext,
+  { userId }: { userId: string },
+): Promise<ListSelect[]> => {
   const db = createDb(c.locals.runtime.env);
-  const userId = isAuthorized(c).id;
   const lists = await db
     .select()
     .from(List)
-    .where(eq(List.userId, userId))
-    .orderBy(List.sortOrder);
+    .innerJoin(ListUser, eq(ListUser.listId, List.id))
+    .where(eq(ListUser.userId, userId))
+    .orderBy(List.sortOrder)
+    .then((data) => data.map(({ list }) => list));
   return lists;
 };
 
-const getOne: ActionHandler<typeof listInputs.getOne, ExpandedList> = async (
-  { listId },
-  c,
-) => {
-  const db = createDb(c.locals.runtime.env);
+export const getAll: ActionHandler<
+  typeof listInputs.getAll,
+  ListSelect[]
+> = async (_, c) => {
   const userId = isAuthorized(c).id;
-
-  const list = await db
-    .select({ id: List.id })
-    .from(List)
-    .where(idAndUserIdFilter(List, { userId, id: listId }))
-    .then((rows) => rows[0]);
-
-  if (!list) {
-    throw new ActionError({
-      code: "NOT_FOUND",
-      message: "List not found",
-    });
-  }
-
-  return await getExpandedList(c, listId);
+  return getAllUserLists(c, { userId });
 };
 
-const create: ActionHandler<typeof listInputs.create, ListSelect> = async (
-  { data },
-  c,
-) => {
+export const getOne: ActionHandler<
+  typeof listInputs.getOne,
+  ExpandedList
+> = async ({ listId }, c) => {
+  const userId = isAuthorized(c).id;
+  await userHasListAccess(c, { userId, listId });
+  return getExpandedList(c, listId);
+};
+
+export const create: ActionHandler<
+  typeof listInputs.create,
+  ListSelect
+> = async ({ data }, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
 
-  const { max: maxSortOrder } = await db
+  const [{ max: maxSortOrder }] = await db
     .select({ max: max(List.sortOrder) })
-    .from(List)
-    .where(eq(List.userId, userId))
-    .then((rows) => rows[0]);
+    .from(List);
 
-  const newList = await db
+  const [newList] = await db
     .insert(List)
     .values({
-      id: uuid(),
       sortOrder: maxSortOrder ? maxSortOrder + 1 : undefined,
       ...data,
-      userId,
     })
-    .returning()
-    .then((rows) => rows[0]);
+    .returning();
+
+  await db.insert(ListUser).values({
+    userId,
+    listId: newList.id,
+    isAdmin: true,
+    isPending: false,
+  });
+
   return newList;
 };
 
-const update: ActionHandler<typeof listInputs.update, ListSelect> = async (
-  { listId, data },
-  c,
-) => {
+export const update: ActionHandler<
+  typeof listInputs.update,
+  ListSelect
+> = async ({ listId, data }, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
   const { sortOrder } = data;
 
+  await userHasListAccess(c, { listId, userId });
+
   const [updated] = await db
     .update(List)
     .set(data)
-    .where(idAndUserIdFilter(List, { userId, id: listId }))
+    .where(eq(List.id, listId))
     .returning();
 
   if (sortOrder !== undefined) {
-    const lists = await db
-      .select({ id: List.id })
-      .from(List)
-      .where(and(eq(List.userId, userId)))
-      .orderBy(List.sortOrder);
-
+    const lists = await getAllUserLists(c, { userId });
     const listIds = lists.map((l) => l.id);
     const indexOfList = listIds.indexOf(listId);
 
@@ -108,7 +106,7 @@ const update: ActionHandler<typeof listInputs.update, ListSelect> = async (
         return db
           .update(List)
           .set({ sortOrder: idx })
-          .where(idAndUserIdFilter(List, { userId, id: listId }))
+          .where(eq(List.id, listId))
           .returning();
       }),
     );
@@ -117,45 +115,30 @@ const update: ActionHandler<typeof listInputs.update, ListSelect> = async (
   return updated;
 };
 
-const remove: ActionHandler<typeof listInputs.remove, null> = async (
+export const remove: ActionHandler<typeof listInputs.remove, null> = async (
   { listId },
   c,
 ) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
-  const listCategories = await db
-    .select()
-    .from(Category)
-    .where(and(eq(Category.listId, listId), eq(Category.userId, userId)));
+  await userHasListAccess(c, { userId, listId });
 
-  if (listCategories.length) {
-    await db.delete(CategoryItem).where(
-      inArray(
-        CategoryItem.categoryId,
-        listCategories.map((c) => c.id),
-      ),
-    );
-  }
-  await db.delete(Category).where(eq(Category.listId, listId));
-  await db
-    .delete(List)
-    .where(idAndUserIdFilter(List, { userId, id: listId }))
-    .returning()
-    .then((rows) => rows[0]);
+  await db.delete(List).where(eq(List.id, listId));
   return null;
 };
 
-const unpack: ActionHandler<typeof listInputs.unpack, ExpandedList> = async (
-  { listId },
-  c,
-) => {
+export const unpack: ActionHandler<
+  typeof listInputs.unpack,
+  ExpandedList
+> = async ({ listId }, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
+  await userHasListAccess(c, { userId, listId });
   const categoryItems = await db
     .select({ id: CategoryItem.id })
     .from(CategoryItem)
     .leftJoin(Category, eq(Category.id, CategoryItem.categoryId))
-    .where(and(eq(Category.listId, listId), eq(Category.userId, userId)));
+    .where(eq(Category.listId, listId));
   const ids = categoryItems.filter((i) => i !== null).map((ci) => ci.id!);
   await db
     .update(CategoryItem)
@@ -164,17 +147,15 @@ const unpack: ActionHandler<typeof listInputs.unpack, ExpandedList> = async (
   return getExpandedList(c, listId);
 };
 
-const duplicate: ActionHandler<
+export const duplicate: ActionHandler<
   typeof listInputs.duplicate,
   ExpandedList
 > = async ({ listId }, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
-  const list = await db
-    .select()
-    .from(List)
-    .where(idAndUserIdFilter(List, { userId, id: listId }))
-    .then((rows) => rows[0]);
+  await userHasListAccess(c, { userId, listId });
+
+  const [list] = await db.select().from(List).where(eq(List.id, listId));
 
   const categories = await db
     .select()
@@ -188,15 +169,21 @@ const duplicate: ActionHandler<
     .leftJoin(Category, eq(CategoryItem.categoryId, Category.id))
     .where(eq(Category.listId, listId));
 
-  const { id: newListId } = await db
+  const [{ id: newListId }] = await db
     .insert(List)
     .values({
       ...list,
-      id: uuid(),
+      id: crypto.randomUUID(),
       name: `${list.name} (Copy)`,
     })
-    .returning()
-    .then((rows) => rows[0]);
+    .returning();
+
+  await db.insert(ListUser).values({
+    listId: newListId,
+    userId,
+    isAdmin: true,
+    isPending: false,
+  });
 
   await Promise.all(
     categories.map(async (category) => {
@@ -204,7 +191,7 @@ const duplicate: ActionHandler<
         .insert(Category)
         .values({
           ...category,
-          id: uuid(),
+          id: crypto.randomUUID(),
           listId: newListId,
         })
         .returning()
@@ -214,7 +201,7 @@ const duplicate: ActionHandler<
         .filter((ci) => ci.categoryItem.categoryId === category.id)
         .map((ci) => ({
           ...ci.categoryItem,
-          id: uuid(),
+          id: crypto.randomUUID(),
           categoryId: newCategory.id,
         }));
 
@@ -225,14 +212,3 @@ const duplicate: ActionHandler<
 
   return getExpandedList(c, newListId);
 };
-
-const listHandlers = {
-  getAll,
-  getOne,
-  create,
-  update,
-  remove,
-  unpack,
-  duplicate,
-};
-export default listHandlers;

@@ -28,7 +28,6 @@ export const initCategoryItem = (
 ): ExpandedCategoryItem => ({
   ...data,
   id: data.id ?? uuid(),
-  userId: data.userId ?? MOCK_USER_ID,
   categoryId: data.categoryId ?? uuid(),
   itemData: initItem(data.itemData),
   quantity: data.quantity ?? 1,
@@ -45,7 +44,6 @@ export const initCategory = (
 ): ExpandedCategory => ({
   ...data,
   id: data.id ?? uuid(),
-  userId: data.userId ?? MOCK_USER_ID,
   name: data.name ?? "",
   sortOrder: data.sortOrder ?? 1,
   items: data.items?.map((item) => initCategoryItem(item)) ?? [],

@@ -1,41 +1,39 @@
-import { Category, CategoryItem, Item, List } from "@/db/schema";
+import { Category, CategoryItem, Item, List, ListUser } from "@/db/schema";
 import { createDb } from "@/db";
 import { and, eq } from "drizzle-orm";
 
-import { idAndUserIdFilter } from "@/actions/filters";
 import { ActionError, type ActionHandler } from "astro:actions";
 import { isAuthorized } from "@/actions/helpers";
 
-import { v4 as uuid } from "uuid";
-import type itemInputs from "./items.inputs";
+import * as itemInputs from "./items.inputs";
 import type { IncludedList, ItemSelect } from "@/lib/types";
 import processImage from "@/lib/server/process-image/process-image";
 
-const getAll: ActionHandler<typeof itemInputs.getAll, ItemSelect[]> = async (
-  _,
-  c,
-) => {
+export const getAll: ActionHandler<
+  typeof itemInputs.getAll,
+  ItemSelect[]
+> = async (_, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
   const items = await db.select().from(Item).where(eq(Item.userId, userId));
   return items;
 };
 
-const create: ActionHandler<typeof itemInputs.create, ItemSelect> = async (
-  data,
-  c,
-) => {
+export const create: ActionHandler<
+  typeof itemInputs.create,
+  ItemSelect
+> = async (data, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
 
   const [newItem] = await db
     .insert(Item)
-    .values({ ...data, userId, id: uuid() })
+    .values({ ...data, userId, id: crypto.randomUUID() })
     .returning();
   return newItem;
 };
 
-const duplicate: ActionHandler<
+export const duplicate: ActionHandler<
   typeof itemInputs.duplicate,
   ItemSelect
 > = async ({ itemId }, c) => {
@@ -44,7 +42,7 @@ const duplicate: ActionHandler<
   const [item] = await db
     .select()
     .from(Item)
-    .where(idAndUserIdFilter(Item, { userId, id: itemId }));
+    .where(and(eq(Item.id, itemId), eq(Item.userId, userId)));
 
   if (!item) {
     throw new ActionError({
@@ -55,13 +53,13 @@ const duplicate: ActionHandler<
 
   const [newItem] = await db
     .insert(Item)
-    .values({ ...item, id: uuid() })
+    .values({ ...item, id: crypto.randomUUID() })
     .returning();
 
   return newItem;
 };
 
-const remove: ActionHandler<typeof itemInputs.remove, null> = async (
+export const remove: ActionHandler<typeof itemInputs.remove, null> = async (
   { itemId },
   c,
 ) => {
@@ -71,7 +69,7 @@ const remove: ActionHandler<typeof itemInputs.remove, null> = async (
   const [item] = await db
     .select()
     .from(Item)
-    .where(idAndUserIdFilter(Item, { userId, id: itemId }));
+    .where(and(eq(Item.id, itemId), eq(Item.userId, userId)));
 
   if (!item) {
     throw new ActionError({
@@ -84,15 +82,17 @@ const remove: ActionHandler<typeof itemInputs.remove, null> = async (
     await c.locals.runtime.env.R2_BUCKET.delete(item.imageR2Key);
   }
 
-  await db.delete(CategoryItem).where(eq(CategoryItem.itemId, itemId));
-  await db.delete(Item).where(idAndUserIdFilter(Item, { userId, id: itemId }));
+  await db
+    .delete(Item)
+    .where(and(eq(Item.id, itemId), eq(Item.userId, userId)));
+
   return null;
 };
 
-const update: ActionHandler<typeof itemInputs.update, ItemSelect> = async (
-  data,
-  c,
-) => {
+export const update: ActionHandler<
+  typeof itemInputs.update,
+  ItemSelect
+> = async (data, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
 
@@ -101,7 +101,7 @@ const update: ActionHandler<typeof itemInputs.update, ItemSelect> = async (
   const [item] = await db
     .select()
     .from(Item)
-    .where(idAndUserIdFilter(Item, { userId, id: itemId }));
+    .where(and(eq(Item.id, itemId), eq(Item.userId, userId)));
 
   if (!item) {
     throw new ActionError({
@@ -113,12 +113,12 @@ const update: ActionHandler<typeof itemInputs.update, ItemSelect> = async (
   const [updated] = await db
     .update(Item)
     .set(data)
-    .where(idAndUserIdFilter(Item, { userId, id: itemId }))
+    .where(and(eq(Item.id, itemId), eq(Item.userId, userId)))
     .returning();
   return updated;
 };
 
-const getListsIncluded: ActionHandler<
+export const getListsIncluded: ActionHandler<
   typeof itemInputs.getListsIncluded,
   IncludedList[]
 > = async ({ itemId }, c) => {
@@ -130,24 +130,25 @@ const getListsIncluded: ActionHandler<
       listName: List.name,
       categoryName: Category.name,
     })
-    .from(CategoryItem)
+    .from(CategoryItem) 
     .rightJoin(Category, eq(Category.id, CategoryItem.categoryId))
     .rightJoin(List, eq(List.id, Category.listId))
-    .where(and(eq(List.userId, userId), eq(CategoryItem.itemId, itemId)));
+    .innerJoin(ListUser, eq(ListUser.listId, List.id))
+    .where(and(eq(CategoryItem.itemId, itemId), eq(ListUser.userId, userId)));
   return result;
 };
 
-const imageUpload: ActionHandler<typeof itemInputs.imageUpload, null> = async (
-  { itemId, imageFile, removeImageFile },
-  c,
-) => {
+export const imageUpload: ActionHandler<
+  typeof itemInputs.imageUpload,
+  null
+> = async ({ itemId, imageFile, removeImageFile }, c) => {
   const db = createDb(c.locals.runtime.env);
   const userId = isAuthorized(c).id;
 
   const [item] = await db
     .select({ id: Item.id, userId: Item.userId, imageKey: Item.imageR2Key })
     .from(Item)
-    .where(idAndUserIdFilter(Item, { userId, id: itemId }));
+    .where(and(eq(Item.id, itemId), eq(Item.userId, userId)));
 
   if (!item) {
     throw new ActionError({
@@ -187,15 +188,3 @@ const imageUpload: ActionHandler<typeof itemInputs.imageUpload, null> = async (
 
   return null;
 };
-
-const itemHandlers = {
-  getAll,
-  create,
-  duplicate,
-  remove,
-  update,
-  getListsIncluded,
-  imageUpload,
-};
-
-export default itemHandlers;

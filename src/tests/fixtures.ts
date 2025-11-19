@@ -1,11 +1,19 @@
 import { createDb } from "@/db";
-import { Category, CategoryItem, Item, List, User } from "@/db/schema";
+import {
+  Category,
+  CategoryItem,
+  Item,
+  List,
+  ListUser,
+  User,
+} from "@/db/schema";
 import env from "@/envs-runtime";
 import type {
   CategoryInsert,
   CategoryItemInsert,
   ItemInsert,
   ListInsert,
+  ListUserInsert,
 } from "@/lib/types";
 
 const getRandomArrayItem = <T>(arr: T[]): T => {
@@ -44,10 +52,20 @@ export const seedTestData = async () => {
     [LIST_ID, ...LIST_IDS].map(
       (listId, idx): ListInsert => ({
         id: listId,
-        userId: USER_ID,
         name: "Test List",
         sortOrder: idx + 1,
         description: "This is a test list",
+      }),
+    ),
+  );
+
+  await db.insert(ListUser).values(
+    [LIST_ID, ...LIST_IDS].map(
+      (listId): ListUserInsert => ({
+        listId: listId,
+        userId: USER_ID,
+        isAdmin: true,
+        isPending: false,
       }),
     ),
   );
@@ -58,7 +76,6 @@ export const seedTestData = async () => {
         id: categoryId,
         name: "Test Category",
         listId: LIST_ID,
-        userId: USER_ID,
         sortOrder: index + 1,
       }),
     ),
@@ -69,7 +86,6 @@ export const seedTestData = async () => {
       (itemId): CategoryItemInsert => ({
         itemId: itemId,
         categoryId: getRandomArrayItem(CATEGORY_IDS),
-        userId: USER_ID,
       }),
     ),
   );

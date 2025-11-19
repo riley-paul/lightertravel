@@ -1,6 +1,6 @@
 import { defineAction } from "astro:actions";
-import feedbackInputs from "./feedback.inputs";
-import feedbackHandlers from "./feedback.handlers";
+import * as feedbackInputs from "./feedback.inputs";
+import * as feedbackHandlers from "./feedback.handlers";
 
 export const create = defineAction({
   input: feedbackInputs.create,

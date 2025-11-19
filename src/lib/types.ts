@@ -4,6 +4,7 @@ import {
   CategoryItem,
   Item,
   List,
+  ListUser,
   User,
   type weightTypes,
   type weightUnits,
@@ -73,6 +74,11 @@ export const zListSelect = createSelectSchema(List);
 export const zListInsert = createInsertSchema(List);
 export type ListSelect = z.infer<typeof zListSelect>;
 export type ListInsert = z.infer<typeof zListInsert>;
+
+export const zListUserSelect = createSelectSchema(ListUser);
+export const zListUserInsert = createInsertSchema(ListUser);
+export type ListUserSelect = z.infer<typeof zListUserSelect>;
+export type ListUserInsert = z.infer<typeof zListUserInsert>;
 
 export const zCategorySelect = createSelectSchema(Category);
 export const zCategoryInsert = createInsertSchema(Category);
