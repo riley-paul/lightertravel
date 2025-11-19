@@ -98,16 +98,18 @@ const UserAvatar: React.FC = () => {
           </DropdownMenu.SubContent>
         </DropdownMenu.Sub>
 
-        <DropdownMenu.Item asChild>
+        <DropdownMenu.Item color="amber" asChild>
           <a href="/logout">
             <LogOutIcon className="size-4 opacity-70" />
             <span>Logout</span>
           </a>
         </DropdownMenu.Item>
+
         <DropdownMenu.Item color="red" onClick={handleDelete}>
           <TrashIcon className="size-4 opacity-70" />
           <span>Delete Account</span>
         </DropdownMenu.Item>
+        <DropdownMenu.Separator />
         <Link href="/policies" size="1" color="gray" className="px-3 py-1">
           View application policies
         </Link>

@@ -65,7 +65,7 @@ type Props = {
 const LoginButton: React.FC<Props> = ({ provider, className }) => {
   const { name, icon, url } = providers[provider];
   return (
-    <Button asChild size="2" variant="soft" className={className}>
+    <Button asChild size="3" variant="soft" className={className}>
       <a href={url}>
         <span>Login with {name}</span>
         <span className="size-4">{icon}</span>
