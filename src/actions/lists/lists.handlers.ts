@@ -1,7 +1,7 @@
 import { createDb } from "@/db";
 import { List, Category, CategoryItem, ListUser } from "@/db/schema";
 import { eq, inArray, max } from "drizzle-orm";
-import { type ActionHandler } from "astro:actions";
+import { type ActionAPIContext, type ActionHandler } from "astro:actions";
 import {
   getExpandedList,
   isAuthorized,
@@ -11,7 +11,6 @@ import { reorder } from "@atlaskit/pragmatic-drag-and-drop/reorder";
 
 import type * as listInputs from "./lists.inputs";
 import type { ExpandedList, ListSelect } from "@/lib/types";
-import type { ActionAPIContext } from "astro/actions/runtime/virtual/shared.js";
 
 const getAllUserLists = async (
   c: ActionAPIContext,
