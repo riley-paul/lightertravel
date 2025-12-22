@@ -8,6 +8,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import ListName from "@/app/modules/list-editor/list-name";
 import EditorCategories from "@/app/modules/list-editor/editor-categories";
 import WeightPanel from "@/app/modules/weight-chart/weight-panel";
+import { useDocumentTitle } from "usehooks-ts";
 
 export const Route = createFileRoute("/_withSidebar/list/$listId")({
   component: RouteComponent,
@@ -19,6 +20,8 @@ export const Route = createFileRoute("/_withSidebar/list/$listId")({
 function RouteComponent() {
   const { listId } = Route.useParams();
   const { data: list } = useSuspenseQuery(listQueryOptions(listId));
+
+  useDocumentTitle(list.name);
 
   if (!list)
     return (
